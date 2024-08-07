@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text to Image with Voice Input</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #000;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow-x: hidden; /* Prevent horizontal scrolling */
+    }
+    h1 {
+        color: #39FF14;
+        text-shadow: 0 0 10px #39FF14, 0 0 20px #39FF14, 0 0 30px #39FF14, 0 0 40px #39FF14, 0 0 50px #39FF14, 0 0 60px #39FF14, 0 0 70px #39FF14;
+        font-size: 2em;
+        margin: 0.5em 0;
+        text-align: center;
+    }
+    label {
+        margin-top: 20px;
+        font-size: 1.2em;
+        color: #ff1493;
+        text-shadow: 0 0 10px #ff1493, 0 0 20px #ff1493, 0 0 30px #ff1493;
+        text-align: center;
+    }
+    input {
+        padding: 10px;
+        margin: 20px;
+        border: 2px solid #39FF14;
+        background-color: #000;
+        color: #39FF14;
+        font-size: 1em;
+        border-radius: 5px;
+        box-shadow: 0 0 10px #39FF14, 0 0 20px #39FF14, 0 0 30px #39FF14;
+        width: 100%;
+        max-width: 400px; /* Set max-width for larger screens */
+        display: inline-block;
+        position: relative;
+    }
+    button {
+        padding: 10px 20px;
+        margin: 10px;
+        background-color: #ff1493;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #fff;
+        box-shadow: 0 0 10px #ff1493, 0 0 20px #ff1493, 0 0 30px #ff1493;
+        transition: background-color 0.3s, transform 0.3s;
+        width: 100%;
+        max-width: 200px; /* Set max-width for larger screens */
+    }
+    button:hover {
+        background-color: #ff69b4;
+        transform: scale(1.05);
+    }
+    .mic-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        font-size: 1.5em;
+        color: #39FF14;
+    }
+    .wave {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 50px;
+        height: 10px;
+        background: linear-gradient(90deg, rgba(57,255,20,1) 0%, rgba(255,20,177,1) 100%);
+        border-radius: 5px;
+        animation: wave-animation 1s infinite;
+    }
+    @keyframes wave-animation {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    img {
+        margin-top: 20px;
+        max-width: 100%;
+        height: auto;
+        border: 2px solid #ff1493;
+        border-radius: 10px;
+        box-shadow: 0 0 20px #39FF14, 0 0 30px #ff1493;
+        transition: transform 0.3s;
+    }
+    img.loading {
+        content: url('loading.gif');
+        width: 50px;
+        height: auto;
+    }
+    img:hover {
+        transform: scale(1.05);
+    }
+    .download-btn {
+        padding: 10px 20px;
+        margin: 10px;
+        background-color: #39FF14;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #fff;
+        box-shadow: 0 0 10px #39FF14, 0 0 20px #39FF14, 0 0 30px #39FF14;
+        transition: background-color 0.3s, transform 0.3s;
+        width: 100%;
+        max-width: 200px; /* Set max-width for larger screens */
+    }
+    .download-btn:hover {
+        background-color: #32a852;
+        transform: scale(1.05);
+    }
+    @media (max-width: 600px) {
+        h1 {
+            font-size: 1.5em;
+        }
+        label, input, button {
+            font-size: 1em;
+        }
+        .mic-icon {
+            font-size: 1.2em;
+        }
+    }
+</style>
+</head>
+<body>
+<h1>Text 2 Image with voice assistent</h1>
+<label for="input">Create an image from text& voice prompt:</label>
+<div style="position: relative;">
+    <input type="text" id="input">
+    <span id="mic" class="mic-icon">🎤</span>
+    <div id="wave" class="wave" style="display: none;"></div>
+</div>
+<button id="btn">Generate</button>
+<img id="image" src="" alt="Generated Image">
+<button id="download-btn" class="download-btn" style="display: none;">Download Image</button>
+<script>
+    const token = "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";
+    const inputTxt = document.getElementById("input");
+    const image = document.getElementById("image");
+    const button = document.getElementById("btn");
+    const mic = document.getElementById("mic");
+    const wave = document.getElementById("wave");
+    const downloadBtn = document.getElementById("download-btn");
+
+    let recognition;
+    let timeout;
+
+    function startRecognition() {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.start();
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            inputTxt.value = transcript;
+            recognition.stop();
+            wave.style.display = 'none';
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            recognition.stop();
+            wave.style.display = 'none';
+        };
+
+        recognition.onstart = () => {
+            wave.style.display = 'block';
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                recognition.stop();
+                wave.style.display = 'none';
+            }, 3000); // 3 seconds
+        };
+    }
+
+    button.addEventListener('click', async function() {
+        if (inputTxt.value.trim() === "") {
+            alert("Please enter a text prompt.");
+            return;
+        }
+        try {
+            const response = await query();
+            const objectURL = URL.createObjectURL(response);
+            image.src = objectURL;
+            image.classList.remove("loading");
+            downloadBtn.style.display = 'inline-block'; // Show download button
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to generate image. Please try again.');
+        }
+    });
+
+    mic.addEventListener('click', startRecognition);
+
+    downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.href = image.src;
+        link.download = 'generated-image.png'; // Change the file name if needed
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    async function query() {
+        image.src = "loading.gif";
+        image.classList.add("loading");
+        const response = await fetch(
+            "https://api-inference.huggingface.co/models/Melonie/text_to_image_finetuned",
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                body: JSON.stringify({ inputs: inputTxt.value })
+            }
+        );
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        const result = await response.blob();
+        return result;
+    }
+</script>
+</body>
+</html>
